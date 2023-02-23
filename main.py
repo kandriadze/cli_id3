@@ -1,7 +1,9 @@
 import os
-import glob
 from abc import ABC, abstractmethod
-import Song
+import sqlite3
+from mutagen.aac import AAC
+from mutagen.wavpack import WavPack
+from mutagen.mp3 import MP3
 
 
 class MusicItem(ABC):
@@ -39,43 +41,71 @@ def get_artwork(self):
 #     pass
 
 
-class MusicLibrary:
-    def __init__(self, directories=[]):
-        self.songs = []
-        self.albums = {}
-        self.artists = {}
-        self.directories = directories()
+class Library:
+    def __init__(self, db_file):
+        self.db_file = db_file
 
+    def scan_directory(self, directory):
+        conn = sqlite3.connect(self.db_file)
+        c = conn.cursor()
 
-def scan_directories(self):
-    for directory in self.directories:
-        for file in glob.glob(os.path.join(directory, ('*.mp3', '*.wav', '*.acc '))):
-            song = Song(file)
-            self.songs.append(song)
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                file_path = os.path.join(root, file)
+                file_ext = os.path.splitext(file)[-1].lower()
 
+                if file_ext in ('.mp3', '.aac', '.wav'):
+                    try:
+                        if file_ext == '.mp3':
+                            audio = MP3(file_path)
+                            title = audio.get('TIT2', 'unknown')
+                            artist = audio.get('TPE1', 'unknown')
+                            album = audio.get('TALB', 'unknown')
+                            duration = int(audio.info.length)
 
-def add_to_artists(self, song):
-    artist = song.get_tags().get('artist', 'Unknown')
-    if artist in self.artists:
-        self.artists[artist].append(song)
-    else:
-        self.artists[artist] = [song]
+                        elif file_ext == '.aac':
+                            audio = AAC(file_path)
+                            title = audio.get('title', 'unknown')
+                            artist = audio.get('artist', 'unknown')
+                            album = audio.get('album', 'unknown')
+                            duration = int(audio.info.length)
 
+                        elif file_ext == '.wav':
+                            audio = WavPack(file_path)
+                            title = audio.get('title', 'unknown')
+                            artist = audio.get('artist', 'unknown')
+                            album = audio.get('album', 'unknown')
+                            duration = int(audio.info.length)
 
-def show(self):
-    print(f"{'Title':<40}{'Artist':<20}{'Album':<30}{'Duration':<10}")
-    for song in self.songs:
-        print(
-            f"{song.get_tags()['title'][0]:<40}{song.get_tags()['artist'][0]:<20}{song.get_tags()['album'][0]:<30}{song.get_duration():<10.2f}")
+                        library_id = self._get_or_create_library(c, root)
 
+                        c.execute("INSERT INTO song (name, duration, library_id, artist, album) VALUES (?, ?, ?, ?, ?)",
+                                  (title, duration, library_id, artist, album))
 
-def add_directory(self, directory):
-    self.directories.append(directory)
+                    except Exception as e:
+                        print(f"Failed to read tags for {file_path}: {str(e)}")
 
+        conn.commit()
+        conn.close()
 
-def remove_directory(self, directory):
-    self.directories.remove(directory)
+    def _get_or_create_library(self, cursor, library_path):
+        cursor.execute(f"SELECT id FROM library WHERE name='{library_path}'")
+        row = cursor.fetchone()
 
-# def play(self):
-#     for song in self.songs:
-#         print(f"Now playing {song.get_tags()['title'][0]} by {song.get_tags()['artist'][0]}")
+        if row:
+            return row[0]
+        else:
+            cursor.execute(f"INSERT INTO library (name) VALUES (?)", (library_path,))
+            return cursor.lastrowid
+
+    def add_directory(self, directory):
+        self.scan_directory(directory)
+
+    def delete_song(self, song_id):
+        conn = sqlite3.connect(self.db_file)
+        c = conn.cursor()
+
+        c.execute("DELETE FROM song WHERE id=?", (song_id,))
+
+        conn.commit()
+        conn.close()

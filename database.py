@@ -1,53 +1,52 @@
 import sqlite3
 
-conn = sqlite3.connect('music.db')
+conn = sqlite3.connect('/music.db')
 
-conn.execute('''CREATE TABLE IF NOT EXISTS music_item (
-                    id INTEGER PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    artist TEXT,
-                    album TEXT,
-                )''')
+c = conn.cursor()
 
-conn.execute('''CREATE TABLE IF NOT EXISTS library (
-                    song_id INTEGER PRIMARY KEY,
-                    title  TEXT NOT NULL
-                )''')
+c.executescript('''
+             DROP TABLE IF EXIST library;
+             DROP TABLE IF EXIST song;
+             DROP TABLE IF EXIST album;
+             DROP TABLE IF EXIST artist;
+             DROP TABLE IF EXIST playlist;
+             DROP TABLE IF EXIST favorites;
 
-conn.execute('''CREATE TABLE IF NOT EXISTS playlist (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL
-                )''')
+             CREATE TABLE library
+                (id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL);
 
-conn.execute('''CREATE TABLE IF NOT EXISTS playlist_song (
-                    playlist_id INTEGER,
-                    song_id INTEGER,
-                    PRIMARY KEY (playlist_id, song_id),
-                    FOREIGN KEY (playlist_id) REFERENCES playlist(id),
-                    FOREIGN KEY (song_id) REFERENCES music_item(id)
-                )''')
+             CREATE TABLE song
+                (id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                duration INTEGER,
+                library_id INTEGER NOT NULL,
+                FOREIGN KEY (library_id) REFERENCES library(id));
 
-conn.execute('''CREATE TABLE IF NOT EXISTS album (
-                    album_id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL
-                )''')
+             CREATE TABLE album
+                (id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                artist_id INTEGER NOT NULL,
+                library_id INTEGER NOT NULL,
+                FOREIGN KEY (artist_id) REFERENCES artist(id),
+                FOREIGN KEY (library_id) REFERENCES library(id));
 
-conn.execute('''CREATE TABLE IF NOT EXISTS album_song (
-                    album_id,
-                    song_id INTEGER,
-                    PRIMARY KEY (album_id, song_id),
-                    FOREIGN KEY (album_id) REFERENCES album(id),
-                    FOREIGN KEY (song_id) REFERENCES music_item(id)
-                )''')
+             CREATE TABLE artist
+                (id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL);
 
-conn.execute('''CREATE TABLE IF NOT EXISTS artist (
-                    id INTEGER PRIMARY KEY,
-                    artist TEXT NOT NULL
-                )''')
+             CREATE TABLE playlists
+                (id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                song_id INTEGER NOT NULL,
+                FOREIGN KEY (song_id) REFERENCES song(id));
 
-conn.execute('''CREATE TABLE IF NOT EXISTS favorites (
-                    id INTEGER PRIMARY KEY,
-                    song_id integer
-                )''')
+             CREATE TABLE favorites
+                (id INTEGER PRIMARY KEY,
+                song_id INTEGER NOT NULL,
+                FOREIGN KEY (song_id) REFERENCES song(id));
+''')
+
 conn.commit()
+
 conn.close()

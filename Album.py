@@ -1,19 +1,15 @@
 class Album:
-    def __init__(self, album):
-        self.album = album
+    def __init__(self, db_file):
+        self.db_file = db_file
 
-    def add_album(self, song):
-        album = song.get_tags().get('album', 'Unknown')
-        if album in self.albums:
-            self.albums[album].append(song)
-        else:
-            self.albums[album] = [song]
+    def add_album(self):
+        pass
 
-    def remove_album(self, song):
+    def remove_album(self):
         pass
 
     def get_artwork(self):
         pass
 
-    def modify_tag(self, song):
+    def modify_tags(self):
         pass
