@@ -27,7 +27,7 @@ class Album:
         self.conn.commit()
 
     def modify_tag(self, album_id, field, value):
-        self.cur.execute("SELECT filename FROM library WHERE album_id = ?", (album_id,))
+        self.cur.execute("SELECT filename FROM library WHERE album_id = ?", (   album_id,))
         filenames = self.cur.fetchall()
         for filename in filenames:
             try:
