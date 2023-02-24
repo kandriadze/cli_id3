@@ -1,111 +1,47 @@
 import os
-from abc import ABC, abstractmethod
+import mutagen
 import sqlite3
-from mutagen.aac import AAC
-from mutagen.wavpack import WavPack
-from mutagen.mp3 import MP3
-
-
-class MusicItem(ABC):
-    def __init__(self, path):
-        self.path = path
-
-
-@abstractmethod
-def get_tags(self):
-    pass
-
-
-@abstractmethod
-def set_tags(self, title, artist, album):
-    pass
-
-
-@abstractmethod
-def modify_tag(self):
-    pass
-
-
-@abstractmethod
-def get_duration(self):
-    pass
-
-
-@abstractmethod
-def get_artwork(self):
-    pass
-
-
-# @abstractmethod
-# def show(self):
-#     pass
 
 
 class Library:
-    def __init__(self, db_file):
-        self.db_file = db_file
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.conn = sqlite3.connect(self.db_path)
+        self.cur = self.conn.cursor()
 
-    def scan_directory(self, directory):
-        conn = sqlite3.connect(self.db_file)
-        c = conn.cursor()
+    def __del__(self):
+        self.conn.close()
 
-        for root, dirs, files in os.walk(directory):
+    def scan_directory(self, dir_path):
+        for root, dirs, files in os.walk(dir_path):
             for file in files:
-                file_path = os.path.join(root, file)
-                file_ext = os.path.splitext(file)[-1].lower()
-
-                if file_ext in ('.mp3', '.aac', '.wav'):
+                if file.endswith(('.mp3', '.wav', '.aac')):
+                    full_path = os.path.join(root, file)
                     try:
-                        if file_ext == '.mp3':
-                            audio = MP3(file_path)
-                            title = audio.get('TIT2', 'unknown')
-                            artist = audio.get('TPE1', 'unknown')
-                            album = audio.get('TALB', 'unknown')
+                        audio = mutagen.File(full_path)
+                        if audio:
+                            title = audio.get('title', ['unknown'])[0]
+                            artist = audio.get('artist', ['unknown'])[0]
+                            album = audio.get('album', ['unknown'])[0]
                             duration = int(audio.info.length)
-
-                        elif file_ext == '.aac':
-                            audio = AAC(file_path)
-                            title = audio.get('title', 'unknown')
-                            artist = audio.get('artist', 'unknown')
-                            album = audio.get('album', 'unknown')
-                            duration = int(audio.info.length)
-
-                        elif file_ext == '.wav':
-                            audio = WavPack(file_path)
-                            title = audio.get('title', 'unknown')
-                            artist = audio.get('artist', 'unknown')
-                            album = audio.get('album', 'unknown')
-                            duration = int(audio.info.length)
-
-                        library_id = self._get_or_create_library(c, root)
-
-                        c.execute("INSERT INTO song (name, duration, library_id, artist, album) VALUES (?, ?, ?, ?, ?)",
-                                  (title, duration, library_id, artist, album))
-
+                            genre = audio.get('genre', ['unknown'])[0]
+                            filename = os.path.basename(full_path)
+                            self.cur.execute(
+                                "INSERT INTO library (title, artist, album, duration, genre, filename) VALUES (?, ?, ?, ?, ?, ?)",
+                                (title, artist, album, duration, genre, filename))
+                            self.conn.commit()
                     except Exception as e:
-                        print(f"Failed to read tags for {file_path}: {str(e)}")
+                        print(f"Error processing file {full_path}: {e}")
 
-        conn.commit()
-        conn.close()
+    def add_directory(self, dir_path):
+        self.scan_directory(dir_path)
 
-    def _get_or_create_library(self, cursor, library_path):
-        cursor.execute(f"SELECT id FROM library WHERE name='{library_path}'")
-        row = cursor.fetchone()
+    def delete_directory(self, dir_path):
+        self.cur.execute("DELETE FROM library WHERE filename LIKE ?", (f"%{dir_path}%",))
+        self.conn.commit()
 
-        if row:
-            return row[0]
-        else:
-            cursor.execute(f"INSERT INTO library (name) VALUES (?)", (library_path,))
-            return cursor.lastrowid
-
-    def add_directory(self, directory):
-        self.scan_directory(directory)
-
-    def delete_song(self, song_id):
-        conn = sqlite3.connect(self.db_file)
-        c = conn.cursor()
-
-        c.execute("DELETE FROM song WHERE id=?", (song_id,))
-
-        conn.commit()
-        conn.close()
+    def display_library(self):
+        self.cur.execute("SELECT * FROM library")
+        rows = self.cur.fetchall()
+        for row in rows:
+            print(row)

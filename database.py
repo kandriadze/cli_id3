@@ -1,52 +1,42 @@
 import sqlite3
 
-conn = sqlite3.connect('/music.db')
+conn = sqlite3.connect('music.db')
 
-c = conn.cursor()
+cur = conn.cursor()
 
-c.executescript('''
-             DROP TABLE IF EXIST library;
-             DROP TABLE IF EXIST song;
-             DROP TABLE IF EXIST album;
-             DROP TABLE IF EXIST artist;
-             DROP TABLE IF EXIST playlist;
-             DROP TABLE IF EXIST favorites;
-
-             CREATE TABLE library
-                (id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL);
-
-             CREATE TABLE song
-                (id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
+cur.execute('''CREATE TABLE library
+               (id INTEGER PRIMARY KEY,
+                title TEXT,
+                artist_id INTEGER,
+                album_id INTEGER,
                 duration INTEGER,
-                library_id INTEGER NOT NULL,
-                FOREIGN KEY (library_id) REFERENCES library(id));
+                genre TEXT)''')
 
-             CREATE TABLE album
-                (id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                artist_id INTEGER NOT NULL,
-                library_id INTEGER NOT NULL,
-                FOREIGN KEY (artist_id) REFERENCES artist(id),
-                FOREIGN KEY (library_id) REFERENCES library(id));
+cur.execute('''CREATE TABLE artist
+               (id INTEGER PRIMARY KEY,
+                name TEXT)''')
 
-             CREATE TABLE artist
-                (id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL);
+cur.execute('''CREATE TABLE album
+               (id INTEGER PRIMARY KEY,
+                title TEXT,
+                artist_id INTEGER)''')
 
-             CREATE TABLE playlists
-                (id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                song_id INTEGER NOT NULL,
-                FOREIGN KEY (song_id) REFERENCES song(id));
+cur.execute('''CREATE TABLE song
+               (id INTEGER PRIMARY KEY,
+                title TEXT,
+                artist_id INTEGER,
+                album_id INTEGER,
+                duration INTEGER,
+                genre TEXT)''')
 
-             CREATE TABLE favorites
-                (id INTEGER PRIMARY KEY,
-                song_id INTEGER NOT NULL,
-                FOREIGN KEY (song_id) REFERENCES song(id));
-''')
+cur.execute('''CREATE TABLE playlist
+               (id INTEGER PRIMARY KEY,
+                name TEXT)''')
+
+cur.execute('''CREATE TABLE favorites
+               (id INTEGER PRIMARY KEY,
+                song_id INTEGER,
+                FOREIGN KEY(song_id) REFERENCES song(id))''')
 
 conn.commit()
-
 conn.close()
